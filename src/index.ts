@@ -108,7 +108,7 @@ puppeteer.use(StealthPlugin());
     'Accept-Language': 'en-US,en;q=0.9'
   });
 
-  await page.goto('https://mblogin.verizonwireless.com/account/business/login/unifiedlogin', {
+  await page.goto('https://www.browserscan.net/bot-detection', {
     waitUntil: 'networkidle2',
     timeout: 0
   });
