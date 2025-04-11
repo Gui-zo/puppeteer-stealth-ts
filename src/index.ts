@@ -5,6 +5,7 @@ puppeteer.use(StealthPlugin());
 
 (async () => {
   const browser = await puppeteer.launch({
+    executablePath: '/usr/bin/chromium-browser',
     headless: false,
     args: [
       '--start-maximized',
