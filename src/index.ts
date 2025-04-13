@@ -5,23 +5,19 @@ puppeteer.use(StealthPlugin());
 
 (async () => {
   const browser = await puppeteer.launch({
-    executablePath: '/usr/bin/chromium-browser',
+    executablePath: '/snap/bin/chromium-browser',
     headless: 'new',
     args: [
       '--start-maximized',
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-blink-features=AutomationControlled',
-      // '--proxy-server=zproxy.lum-superproxy.io:22225'
     ],
     defaultViewport: null,
   });
 
   const [page] = await browser.pages();
-  // await page.authenticate({
-  //   username: 'brd-customer-hl_d8b5cfdb-zone-sweepy_devfaizy_vzw_v5_s_1',
-  //   password: 'bvdz6vv70xsk'
-  // });
+
 
 //   await page.setRequestInterception(true)
 
