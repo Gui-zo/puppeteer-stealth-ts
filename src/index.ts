@@ -3,7 +3,7 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
 puppeteer.use(StealthPlugin());
 
-const CONCURRENCY = 5; 
+const CONCURRENCY = 10; 
 
 (async () => {
   const browser = await puppeteer.launch({
@@ -12,6 +12,7 @@ const CONCURRENCY = 5;
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-blink-features=AutomationControlled',
+      '--proxy-server=zproxy.lum-superproxy.io:22225'
     ],
     defaultViewport: null,
   });
@@ -22,6 +23,11 @@ const CONCURRENCY = 5;
     const task = (async (index) => {
       const context = await browser.createIncognitoBrowserContext();
       const page = await context.newPage();
+
+      await page.authenticate({
+        username: 'brd-customer-hl_d8b5cfdb-zone-sweepy_devfaizy_vzw_v5_s_1',
+        password: 'bvdz6vv70xsk'
+      });
 
       await page.setUserAgent(
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
@@ -107,12 +113,18 @@ const CONCURRENCY = 5;
       });
       
 
-      await page.goto('https://www.browserscan.net/bot-detection', {
+      // await page.goto('https://www.browserscan.net/bot-detection', {
+      //   waitUntil: 'networkidle2',
+      //   timeout: 0,
+      // });
+
+      await page.goto('https://mblogin.verizonwireless.com/account/business/ilogin', {
         waitUntil: 'networkidle2',
         timeout: 0,
       });
 
-      await page.screenshot({ path: `browserscan-result-${index}.png`, fullPage: true });
+      // await page.screenshot({ path: `browserscan-result-${index}.png`, fullPage: true });
+      await page.screenshot({ path: `verizon-login-result-${index}.png`, fullPage: true });
       console.log(`✔ Tab ${index} done`);
 
       await context.close();
