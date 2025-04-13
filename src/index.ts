@@ -3,12 +3,12 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
 puppeteer.use(StealthPlugin());
 
+const CONCURRENCY = 5; 
+
 (async () => {
   const browser = await puppeteer.launch({
-    executablePath: '/usr/bin/chromium-browser',
     headless: 'new',
     args: [
-      '--start-maximized',
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-blink-features=AutomationControlled',
@@ -16,102 +16,111 @@ puppeteer.use(StealthPlugin());
     defaultViewport: null,
   });
 
-  const [page] = await browser.pages();
+  const tasks = [];
 
+  for (let i = 0; i < CONCURRENCY; i++) {
+    const task = (async (index) => {
+      const context = await browser.createIncognitoBrowserContext();
+      const page = await context.newPage();
 
-//   await page.setRequestInterception(true)
+      await page.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+      );
 
-  await page.evaluateOnNewDocument(() => {
-    const navigatorHandler = {
-      get: (target: any, key: string) => {
-        if (key === 'webdriver') return undefined;
-        if (key === 'languages') return ['en-US', 'en'];
-        if (key === 'plugins') return [1, 2, 3];
-        if (key === 'hardwareConcurrency') return 8;
-        if (key === 'deviceMemory') return 8;
-        if (key === 'maxTouchPoints') return 1;
-        if (key === 'userAgentData') {
-          return {
-            brands: [
-              { brand: "Not=A?Brand", version: "99" },
-              { brand: "Google Chrome", version: "122" },
-              { brand: "Chromium", version: "122" }
-            ],
-            mobile: false,
-            platform: "Windows"
-          };
-        }
-        return Reflect.get(target, key);
-      },
-      getOwnPropertyDescriptor: (target: any, key: string) => {
-        if (key === 'webdriver') return undefined;
-        return Reflect.getOwnPropertyDescriptor(target, key);
-      },
-      has: (target: any, key: string) => {
-        if (key === 'webdriver') return false;
-        return Reflect.has(target, key);
-      }
-    };
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+      });
 
-    const proxyNavigator = new Proxy(navigator, navigatorHandler);
-    Object.defineProperty(window, 'navigator', {
-      get: () => proxyNavigator
-    });
+      await page.evaluateOnNewDocument(() => {
+        const navigatorHandler = {
+          get: (target: any, key: any) => {
+            if (key === 'webdriver') return undefined;
+            if (key === 'languages') return ['en-US', 'en'];
+            if (key === 'plugins') return [1, 2, 3];
+            if (key === 'hardwareConcurrency') return 8;
+            if (key === 'deviceMemory') return 8;
+            if (key === 'maxTouchPoints') return 1;
+            if (key === 'userAgentData') {
+              return {
+                brands: [
+                  { brand: "Not=A?Brand", version: "99" },
+                  { brand: "Google Chrome", version: "122" },
+                  { brand: "Chromium", version: "122" }
+                ],
+                mobile: false,
+                platform: "Windows"
+              };
+            }
+            return Reflect.get(target, key);
+          },
+          getOwnPropertyDescriptor: (target: any, key: any) => {
+            if (key === 'webdriver') return undefined;
+            return Reflect.getOwnPropertyDescriptor(target, key);
+          },
+          has: (target: any, key: any) => {
+            if (key === 'webdriver') return false;
+            return Reflect.has(target, key);
+          }
+        };
+      
+        const proxyNavigator = new Proxy(navigator, navigatorHandler);
+        Object.defineProperty(window, 'navigator', {
+          get: () => proxyNavigator
+        });
+      
+        const getParameter = WebGLRenderingContext.prototype.getParameter;
+        WebGLRenderingContext.prototype.getParameter = function (param) {
+          if (param === 37445) return 'Intel Inc.';
+          if (param === 37446) return 'Intel Iris Xe Graphics';
+          return getParameter.call(this, param);
+        };
+      
+        const originalQuery = window.navigator.permissions.query;
+        window.navigator.permissions.query = function (parameters: any): Promise<any> {
+          if (parameters.name === 'notifications') {
+            return Promise.resolve({ state: Notification.permission });
+          }
+          return originalQuery(parameters);
+        };
+      
+        (window as any).chrome = {
+          runtime: {},
+          loadTimes: () => null,
+          csi: () => null,
+        };
+      
+        const nativeToString = Function.prototype.toString;
+        Function.prototype.toString = function () {
+          if (this === Function.prototype.toString) {
+            return 'function toString() { [native code] }';
+          }
+          return nativeToString.call(this);
+        };
+      
+        Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
+          get: function () {
+            return window;
+          }
+        });
+      
+        console.debug = () => null;
+      });
+      
 
-    const getParameter = WebGLRenderingContext.prototype.getParameter;
-    WebGLRenderingContext.prototype.getParameter = function (param) {
-      if (param === 37445) return 'Intel Inc.';
-      if (param === 37446) return 'Intel Iris Xe Graphics';
-      return getParameter.call(this, param);
-    };
+      await page.goto('https://www.browserscan.net/bot-detection', {
+        waitUntil: 'networkidle2',
+        timeout: 0,
+      });
 
-    const originalQuery = window.navigator.permissions.query;
-    window.navigator.permissions.query = function (parameters) {
-      if (parameters.name === 'notifications') {
-        return Promise.resolve({ state: Notification.permission } as any);
-      }
-      return originalQuery(parameters);
-    };
+      await page.screenshot({ path: `browserscan-result-${index}.png`, fullPage: true });
+      console.log(`✔ Tab ${index} done`);
 
-    (window as any).chrome = {
-      runtime: {},
-      loadTimes: () => null,
-      csi: () => null,
-    };
+      await context.close();
+    })(i);
 
-    const nativeToString = Function.prototype.toString;
-    Function.prototype.toString = function () {
-      if (this === Function.prototype.toString) {
-        return 'function toString() { [native code] }';
-      }
-      return nativeToString.call(this);
-    };
+    tasks.push(task);
+  }
 
-    Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
-      get: function () {
-        return window;
-      }
-    });
-
-    console.debug = () => null;
-  });
-
-  await page.setUserAgent(
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-  );
-
-  await page.setExtraHTTPHeaders({
-    'Accept-Language': 'en-US,en;q=0.9'
-  });
-
-  await page.goto('https://www.browserscan.net/bot-detection', {
-    waitUntil: 'networkidle2',
-    timeout: 0
-  });
-  
-
-  await page.screenshot({ path: 'browserscan-result.png', fullPage: true });
-  console.log('Screenshot saved as browserscan-result.png');
-  
-
+  await Promise.all(tasks);
+  await browser.close();
 })();
