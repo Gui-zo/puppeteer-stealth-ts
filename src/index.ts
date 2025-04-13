@@ -3,7 +3,7 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
 puppeteer.use(StealthPlugin());
 
-const CONCURRENCY = 10; 
+const CONCURRENCY = 35; 
 
 (async () => {
   const browser = await puppeteer.launch({
